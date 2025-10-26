@@ -1,0 +1,245 @@
+package de.cbfagree.webstart.frontend;
+
+import java.io.IOException;
+import java.io.PushbackInputStream;
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
+import java.nio.ByteBuffer;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
+import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
+import java.util.Iterator;
+import java.util.Set;
+
+import de.cbfagree.webstart.cache.CacheRepository;
+import de.cbfagree.webstart.config.FrontendConfig;
+
+/**
+ * 
+ */
+public class MainSelector implements Runnable
+{
+    private byte[] readBuffer;
+    private byte[] writeBuffer;
+    private CacheRepository cacheRepo;
+
+    private FrontendConfig config;
+
+    /**
+     * @throws IOException
+     */
+    public MainSelector(FrontendConfig cfg, CacheRepository cacheRepo) throws IOException
+    {
+        this.config = cfg;
+        this.readBuffer = new byte[cfg.getRecvBufferSize()];
+        this.writeBuffer = new byte[cfg.getSendBufferSize()];
+        this.cacheRepo = cacheRepo;
+    }
+
+    /**
+     * Die SelectorLoop
+     */
+    @Override
+    public void run()
+    {
+        try
+        {
+            ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
+            serverSocketChannel.socket().bind(new InetSocketAddress(this.config.getPort()));
+            serverSocketChannel.configureBlocking(false);
+
+            Selector selector = Selector.open();
+            SelectionKey key = serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
+
+            while (!Thread.currentThread().isInterrupted())
+            {
+                if (selector.select() > 0)
+                {
+
+                    Set<SelectionKey> selectedKeys = selector.selectedKeys();
+                    Iterator<SelectionKey> keyIterator = selectedKeys.iterator();
+
+                    while (keyIterator.hasNext())
+                    {
+                        key = keyIterator.next();
+                        keyIterator.remove();
+
+                        if (key.isAcceptable())
+                        {
+                            this.handleIncommingConnection(key);
+                        }
+
+                        if (key.isReadable())
+                        {
+                            this.handleRead(key);
+                        }
+
+                        if (key.isWritable())
+                        {
+                            this.handleWrite(key);
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Behandle eine neu hereinkommende Verbindung.
+     * 
+     * Zuerst müssen wir den HTTPRequestHeader lesen, also setzen wir
+     * die InterestMap auf OP_READ.
+     * 
+     * Desweiteren wird mit dem SelectorKey ein neuen {@link TransferContext}
+     * assoziert. Dadurch können wir Status-Informationen zwischen den
+     * asynchronen lese/schreib-Informationen an diesem Channel halten.
+     * 
+     * @param key
+     */
+    private void handleIncommingConnection(SelectionKey key)
+    {
+        ServerSocketChannel channel = (ServerSocketChannel) key.channel();
+        try
+        {
+            SocketChannel newChannel = channel.accept();
+            newChannel.configureBlocking(false);
+            SelectionKey newKey = newChannel.register(key.selector(), SelectionKey.OP_READ);
+
+            SocketAddress remote = newChannel.socket().getRemoteSocketAddress();
+            newKey.attach(new TransferContext(remote));
+        }
+        catch (IOException e)
+        {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Auf einer Verbindung sind Daten herein gekommen. Wir benutzen hier einen
+     * gemeinsammen ReadBuffer über alle Channels, einfach um Speicherplatz
+     * zu sparen. Die Channels werden ohnehin sequentiell verarbeitet.
+     * 
+     * Wir übertragen die empfangenen Daten in den TransferContext. Sollte
+     * damit ein kompletter HTTP-Header empfangen sein, so wechseln wir das
+     * InterestSet auf Write.
+     * 
+     * Dadurch werden ab dem nächsten Durchlauf des Selectors der Download der 
+     * Daten ausgelöst.
+     * 
+     * @param key
+     */
+    private void handleRead(SelectionKey key)
+    {
+        try
+        {
+            SocketChannel channel = (SocketChannel) key.channel();
+            ByteBuffer byteBuf = ByteBuffer.wrap(this.readBuffer);
+
+            int read = channel.read(byteBuf);
+            if (read == -1)
+            {
+                // TODO: unexpected eof!
+                channel.close();
+                key.cancel();
+            }
+            else
+            {
+                if (read > 0)
+                {
+                    byteBuf.flip();
+
+                    TransferContext ctx = (TransferContext) key.attachment();
+                    if (ctx.appendRequestData(byteBuf.array(), read))
+                    {
+                        String resName = ctx.getRequestHeader().getUrl();
+                        PushbackInputStream pushbackStream = new PushbackInputStream( //
+                            this.cacheRepo.getResource(resName), //
+                            this.config.getRecvBufferSize());
+
+                        ctx.setDataSrc(pushbackStream);
+                        key.interestOps(SelectionKey.OP_WRITE);
+                    }
+                }
+            }
+        }
+        catch (IOException e)
+        {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+        catch (InterruptedException e)
+        {
+            e.printStackTrace();
+            Thread.currentThread().interrupt();
+        }
+
+    }
+
+    /**
+     * Der Channel ist bereit zum schreiben.
+     * 
+     * Wir lesen aus dem SourceStream des TransferContextes in den gemeinsammen
+     * writeBuffer. 
+     * 
+     * Sollte dabei EOF des SourceStreams erkannt werden, dann wird der Channel 
+     * geschlossen und aus dem Selector entfern.
+     * 
+     * Sollten aktuell keine Daten am SourceStream anliegen, so wird nichts 
+     * gemacht.
+     * 
+     * Sollten weniger Bytes geschrieben werden können als gelesen wurden, so
+     * werden die "restlichen" Daten in den SourceStream zurück gepushed.
+     * 
+     * @param key
+     */
+    private void handleWrite(SelectionKey key)
+    {
+        SocketChannel channel = (SocketChannel) key.channel();
+        try
+        {
+            TransferContext ctx = (TransferContext) key.attachment();
+            PushbackInputStream in = ctx.getDataSrc();
+
+            int read = in.read(this.writeBuffer);
+            switch (read)
+            {
+                case -1 :
+                    channel.socket().close();
+                    key.cancel();
+                    in.close();
+                    break;
+
+                case 0 :
+                    break;
+
+                default :
+                    ByteBuffer buf = ByteBuffer.wrap(this.writeBuffer, 0, read);
+                    int written = channel.write(buf);
+                    if (read > written)
+                    {
+                        in.unread(writeBuffer, written, read - written);
+                    }
+                    break;
+            }
+        }
+        catch (IOException e)
+        {
+            try
+            {
+                e.printStackTrace();
+                key.cancel();
+                channel.socket().close();
+            }
+            catch (IOException ex)
+            {
+
+            }
+        }
+    }
+}

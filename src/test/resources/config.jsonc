@@ -1,0 +1,75 @@
+/*
+  Das Konfigurations-File für den JWS-Proxy
+ */
+{
+	// Die Konfiguration für den Zugriff auf den Parent-Proxy bzw
+	// das Download-Portal
+	"backend": {
+		
+		// Die Basis-URL zum Parent-Proxy/Download-Portal. Alle Downloads
+		// erfolgen relativ zu dieser URL.
+		//
+		"baseUrl": "https://www.google.de",
+
+		// Der Timeout für das Verbinden mit dem Parent-Proxy/Download-Portal
+		//
+		// Die Angabe erfolgt in Millisekunden.
+		//
+		// Zulässiger Wertebereich: 1 <= readTimeout
+		// 
+		"connTimeout": 5000,
+		
+		// Der Timeout für das lesen vom Parent-Proxy/Download-Portal. Die
+		// Angabe beudetet nicht, dass innerhalb dieses Intervals die komplette
+		// Resource geladen sein muss. Wenn allerdings innerhalb dieses Intervals
+		// gar nichts vom Parent kommt, so wird die Verbindung geschlossen.
+		//
+		// Die Angabe erfolgt in Millisekunden.
+		//
+		// Zulässiger Wertebereich: 1 <= readTimeout
+		// 
+		"readTimeout": 5000,
+		
+		// Die maximaler Anzahl gleichzeitiger Verbindungen zum Parent-Proxy
+		// bzw. Download-Portal. Der wirklich verwendete Wert in das minimum
+		// zwischen dem angegeben Wert und der Anzahl verfügbarer Prozessoren.
+		//
+		// Zusässiger Wertebereich: 1 <= maxThreads 
+		"maxThreads": 4
+	},
+	
+	// Proxy-Connection
+	"frontend": {
+		
+		// Der TCP-Port, auf welchem der Proxy von außen erreichbar sein soll.
+		//
+		// Zulässiger Wertebereich: 1 <= port <= 65535
+		//
+		"port": 9090,
+		
+		// Die Länge der Warteschlage für neu ankommende Verbindungen. Dieser
+		// Wert hat nichts mit der Anzahl paralleler Connections zu tun, es ist 
+		// die maximale Anzahl von hereinkommenden Verbindungen welche noch nicht 
+		// angenommen wurden.
+		//
+		// Zulässiger Wertebereich: 1<= backlog
+		//
+		"backlog": 100,
+		
+		"recvBufferSize": "16Kb",
+		"sendBufferSize": "16Kb"
+	},
+	
+	// Die Konfiguration des lokalen Prxy-Caches
+	//
+	"cache": {
+		
+		// Der Basis-Pfad des lokalen Caches. Resourcen, welche vom Proxy herunter
+		// geladen wurden werden unter diesem Verzeichnis angelegt.
+		//
+		// Sollte das Verzeichnis beim Start des Proxies nicht existieren, so wird
+		// versucht es anzulegen.
+		//
+		"basePath": "/tmp/cache"
+	}
+}
