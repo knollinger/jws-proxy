@@ -76,24 +76,36 @@ public class CacheRepository implements DownloadObserver
     private void fillFromFileSystem()
     {
         log.info(MsgFactory.get(this.getClass(), EMsgIds.FILL_REPO, this.cacheBaseDir.getAbsolutePath()));
-        for (File file : this.cacheBaseDir.listFiles())
+        this.scanDirectory(this.cacheBaseDir);
+        log.info(MsgFactory.get(this.getClass(), EMsgIds.REPO_SIZE, this.repo.size()));
+    }
+
+    /**
+     * 
+     * @param path
+     */
+    private void scanDirectory(File path)
+    {
+        String basePath = this.cacheBaseDir.getAbsolutePath();
+        for (File file : path.listFiles())
         {
             String fileName = file.getName();
-            if (!file.isFile())
+            if (file.isDirectory())
             {
-                log.info(MsgFactory.get(this.getClass(), EMsgIds.IGNORE_CACHE_ENTRY, fileName));
+                this.scanDirectory(file);
             }
             else
             {
                 if (fileName.endsWith(".cache"))
                 {
-                    log.info( MsgFactory.get(this.getClass(), EMsgIds.USE_CACHE_ENTRY, fileName));
-                    this.repo.put("/" + fileName, new CachedEntryInputStreamFactory(file));
+                    String relativeName = file.getAbsolutePath().substring(basePath.length());
+                    log.info(MsgFactory.get(this.getClass(), EMsgIds.USE_CACHE_ENTRY, relativeName));
+
+                    String cacheName = relativeName.substring(0, relativeName.length() - ".cache".length());
+                    this.repo.put(cacheName, new CachedEntryInputStreamFactory(file));
                 }
             }
         }
-
-        log.info(MsgFactory.get(this.getClass(), EMsgIds.REPO_SIZE, this.repo.size()));
     }
 
     /**
