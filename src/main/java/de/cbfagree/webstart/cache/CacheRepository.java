@@ -12,8 +12,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.logging.log4j.message.Message;
 
-import de.cbfagree.webstart.backend.DownloadJob;
-import de.cbfagree.webstart.backend.DownloadObserver;
+import de.cbfagree.webstart.backend.DownloadTask;
+import de.cbfagree.webstart.backend.IDownloadObserver;
 import de.cbfagree.webstart.backend.DownloaderEngine;
 import de.cbfagree.webstart.backend.PendingDownloadInputStream;
 import de.cbfagree.webstart.backend.WriteThroughBuffer;
@@ -22,7 +22,7 @@ import de.cbfagree.webstart.messages.MsgFactory;
 import lombok.extern.log4j.Log4j2;
 
 @Log4j2()
-public class CacheRepository implements DownloadObserver
+public class CacheRepository implements IDownloadObserver
 {
     private File cacheBaseDir;
     private DownloaderEngine engine;
@@ -155,7 +155,7 @@ public class CacheRepository implements DownloadObserver
             {
                 log.debug(MsgFactory.get(this.getClass(), EMsgIds.DOWNLOAD_INITATED, resourceName));
                 fact = bufFact;
-                DownloadJob downloadTask = new DownloadJob(resourceName, buffer, this);
+                DownloadTask downloadTask = new DownloadTask(resourceName, buffer, this);
                 this.engine.submit(downloadTask);
             }
         }

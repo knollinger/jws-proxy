@@ -102,7 +102,7 @@ public class MainSelector implements Runnable
      * Zuerst müssen wir den HTTPRequestHeader lesen, also setzen wir
      * die InterestMap auf OP_READ.
      * 
-     * Desweiteren wird mit dem SelectorKey ein neuen {@link TransferContext}
+     * Desweiteren wird mit dem SelectorKey ein neuen {@link ChannelTransferContext}
      * assoziert. Dadurch können wir Status-Informationen zwischen den
      * asynchronen lese/schreib-Informationen an diesem Channel halten.
      * 
@@ -118,7 +118,7 @@ public class MainSelector implements Runnable
             SelectionKey newKey = newChannel.register(key.selector(), SelectionKey.OP_READ);
 
             SocketAddress remote = newChannel.socket().getRemoteSocketAddress();
-            newKey.attach(new TransferContext(remote));
+            newKey.attach(new ChannelTransferContext(remote));
         }
         catch (IOException e)
         {
@@ -161,7 +161,7 @@ public class MainSelector implements Runnable
                 {
                     byteBuf.flip();
 
-                    TransferContext ctx = (TransferContext) key.attachment();
+                    ChannelTransferContext ctx = (ChannelTransferContext) key.attachment();
                     if (ctx.appendRequestData(byteBuf.array(), read))
                     {
                         String resName = ctx.getRequestHeader().getUrl();
@@ -210,7 +210,7 @@ public class MainSelector implements Runnable
         SocketChannel channel = (SocketChannel) key.channel();
         try
         {
-            TransferContext ctx = (TransferContext) key.attachment();
+            ChannelTransferContext ctx = (ChannelTransferContext) key.attachment();
             PushbackInputStream in = ctx.getDataSrc();
 
             int read = in.read(this.writeBuffer);

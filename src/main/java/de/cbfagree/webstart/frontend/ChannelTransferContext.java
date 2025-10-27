@@ -2,14 +2,16 @@ package de.cbfagree.webstart.frontend;
 
 import java.io.PushbackInputStream;
 import java.net.SocketAddress;
+import java.util.Arrays;
 
+import de.cbfagree.webstart.backend.PendingDownloadInputStream;
 import de.cbfagree.webstart.httputils.HttpRequestHeader;
 import de.cbfagree.webstart.httputils.HttpRequestHeaderParser;
 import de.cbfagree.webstart.messages.MsgFactory;
 import lombok.extern.log4j.Log4j2;
 
 /**
- * Der {@link TransferContext} hält alle Status-Informationen für einen
+ * Der {@link ChannelTransferContext} hält alle Status-Informationen für einen
  * ProxyTransfer.
  * 
  * Über die Lebenszeit einer Verbindung wechselt diese zwischen verschieden
@@ -20,16 +22,21 @@ import lombok.extern.log4j.Log4j2;
  * Diese Zustands-Übergänge werden einfach durch das komplette empfangen eines
  * HttpHeaders gesteuert. Der MainSelector liest Daten vom ClientChannel, solange
  * noch kein kompletter HTTPHeader empfangen wurde. Die empfangenen Daten pumpt 
- * er via {@link TransferContext#appendRequestData(byte[], int)} in den Context.
+ * er via {@link ChannelTransferContext#appendRequestData(byte[], int)} in den Context.
  * 
  * Sobald der Context "got it!" meldet, schaltet der {@link MainSelector} das
- * InterestiungSet des SelectorKey für den Channel auf OP_WRITE.
+ * InterestingSet des SelectorKey für den Channel auf OP_WRITE und setzt die
+ * resource auf einen passenden InputStream. Dies ist entweder ein File-
+ * InputStream (wenn die Resource im Cache gefunden wurde) oder ein
+ * {@link PendingDownloadInputStream}, wenn ein Download vom Parent angefordert
+ * wurde.
  * 
- * Der MainSelector 
+ * Der TransferContext wird als Attachment an den SelectorKey gehängt, somit
+ * steht der Context für jede Operation am SelectorKey zur Verfügung.
  * 
  */
 @Log4j2
-class TransferContext
+class ChannelTransferContext
 {
     private static final int INITIAL_RECV_BUFFER_SIZE = 8 * 1024;
 
@@ -38,13 +45,13 @@ class TransferContext
     private int recvBufferWritePos = 0;
 
     private HttpRequestHeader reqHeader;
-    private PushbackInputStream resource;
+    private PushbackInputStream dataSource;
 
     /**
      * 
      * @param remote
      */
-    public TransferContext(SocketAddress remote)
+    public ChannelTransferContext(SocketAddress remote)
     {
         this.remoteAddress = remote;
         log.debug(MsgFactory.get(this.getClass(), EMsgIds.CREATE_CONTEXT, remote));
@@ -75,9 +82,7 @@ class TransferContext
             if (remainingCapacity < len)
             {
                 int newCapacity = Math.max(this.recvBuffer.length * 2, len + remainingCapacity);
-                byte[] newBuffer = new byte[newCapacity];
-                System.arraycopy(this.recvBuffer, 0, newBuffer, 0, this.recvBufferWritePos);
-                this.recvBuffer = newBuffer;
+                this.recvBuffer = Arrays.copyOf(this.recvBuffer, newCapacity);
             }
             System.arraycopy(array, 0, this.recvBuffer, this.recvBufferWritePos, len);
             this.recvBufferWritePos += len;
@@ -134,13 +139,21 @@ class TransferContext
         REQ_HDR_COMPLETED, //
     }
 
-    public void setDataSrc(PushbackInputStream resource)
+    /**
+     * Setze die Daten-Quelle für den Transfer des Response-Contents
+     * 
+     * @param dataSource
+     */
+    public void setDataSrc(PushbackInputStream dataSource)
     {
-        this.resource = resource;
+        this.dataSource = dataSource;
     }
 
+    /**
+     * @return
+     */
     public PushbackInputStream getDataSrc()
     {
-        return this.resource;
+        return this.dataSource;
     }
 }

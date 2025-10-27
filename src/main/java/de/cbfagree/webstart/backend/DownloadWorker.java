@@ -1,11 +1,9 @@
 package de.cbfagree.webstart.backend;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.net.HttpURLConnection;
@@ -13,8 +11,6 @@ import java.net.MalformedURLException;
 import java.net.Proxy;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
-import java.util.Map;
 import java.util.concurrent.LinkedBlockingQueue;
 
 /**
@@ -29,13 +25,13 @@ class DownloadWorker extends Thread
     private static int workerNr = 0;
 
     private URL baseUrl;
-    private LinkedBlockingQueue<DownloadJob> queue;
+    private LinkedBlockingQueue<DownloadTask> queue;
 
     /**
      * @param baseUrl
      * @param queue
      */
-    public DownloadWorker(URL baseUrl, LinkedBlockingQueue<DownloadJob> queue)
+    public DownloadWorker(URL baseUrl, LinkedBlockingQueue<DownloadTask> queue)
     {
         this.baseUrl = baseUrl;
         this.queue = queue;
@@ -56,7 +52,7 @@ class DownloadWorker extends Thread
         {
             try
             {
-                DownloadJob job = this.queue.take();
+                DownloadTask job = this.queue.take();
                 this.doDownload(job);
             }
             catch (InterruptedException e)
@@ -67,17 +63,17 @@ class DownloadWorker extends Thread
     }
 
     /**
-     * @param job
+     * @param task
      */
-    private void doDownload(DownloadJob job)
+    private void doDownload(DownloadTask task)
     {
         try
         {
-            HttpURLConnection conn = this.createDownloadConnection(job.getFileName());
+            HttpURLConnection conn = this.createDownloadConnection(task.fileName());
 
             int statusCode = conn.getResponseCode();
-            job.getBuffer().setStatusCode(statusCode);
-            job.getBuffer().setContentType(conn.getContentType());
+            task.buffer().setStatusCode(statusCode);
+            task.buffer().setContentType(conn.getContentType());
 
             if (statusCode == 200)
             {
@@ -87,20 +83,20 @@ class DownloadWorker extends Thread
                     int read = in.read(buffer);
                     while (read != -1)
                     {
-                        job.getBuffer().append(buffer, read);
+                        task.buffer().append(buffer, read);
                         read = in.read(buffer);
                     }
-                    job.getBuffer().close();
+                    task.buffer().close();
 
-                    File tmpFile = this.createCacheFile(conn, job.getBuffer());
-                    job.getObserver().downloadCompleted(job.getFileName(), tmpFile);
+                    File tmpFile = this.createCacheFile(conn, task.buffer());
+                    task.observer().downloadCompleted(task.fileName(), tmpFile);
                 }
             }
         }
         catch (IOException | InterruptedException e)
         {
             e.printStackTrace();
-            job.getBuffer().setBackendException(e);
+            task.buffer().setBackendException(e);
         }
     }
 

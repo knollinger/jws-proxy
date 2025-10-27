@@ -13,7 +13,7 @@ import de.cbfagree.webstart.config.BackendConfig;
 public class DownloaderEngine
 {
     private List<DownloadWorker> threads;
-    private LinkedBlockingQueue<DownloadJob> taskQueue;
+    private LinkedBlockingQueue<DownloadTask> taskQueue;
     private boolean isInShutdown = false;
 
     /**
@@ -21,7 +21,7 @@ public class DownloaderEngine
      */
     public DownloaderEngine(BackendConfig cfg)
     {
-        this.taskQueue = new LinkedBlockingQueue<DownloadJob>(1000);
+        this.taskQueue = new LinkedBlockingQueue<DownloadTask>(1000);
         this.startThreads(cfg.getBaseUrl(), cfg.getMaxThreads(), this.taskQueue);
     }
 
@@ -29,7 +29,7 @@ public class DownloaderEngine
      * @param task
      * @throws InterruptedException
      */
-    public void submit(DownloadJob task) throws InterruptedException
+    public void submit(DownloadTask task) throws InterruptedException
     {
         if (this.isInShutdown)
         {
@@ -58,7 +58,7 @@ public class DownloaderEngine
      * @param maxThreads
      * @param taskQueue
      */
-    private void startThreads(URL baseUrl, int maxThreads, LinkedBlockingQueue<DownloadJob> taskQueue)
+    private void startThreads(URL baseUrl, int maxThreads, LinkedBlockingQueue<DownloadTask> taskQueue)
     {
         int nrOfThreads = Math.min(maxThreads, Runtime.getRuntime().availableProcessors());
         this.threads = new ArrayList<>(nrOfThreads);
