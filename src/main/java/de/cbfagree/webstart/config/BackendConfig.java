@@ -28,6 +28,14 @@ public class BackendConfig
     @JsonProperty("maxThreads")
     private int maxThreads = 4;
 
+    @JsonProperty("httpProxy")
+    private String httpProxy = "NONE";
+
+    /**
+     * validiere das Konfigurations-Objekt.
+     * 
+     * @throws ConfigException wenn die Config einen ungültigen Wert enthält
+     */
     public void validate() throws ConfigException
     {
         if (this.baseUrl == null)
@@ -49,5 +57,7 @@ public class BackendConfig
         {
             throw new ConfigException(EMsgId.ERR_INV_BACKEND_MAX_THREADS, this.maxThreads);
         }
+
+        // TODO: httpProxy validieren
     }
 }

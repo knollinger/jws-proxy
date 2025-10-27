@@ -26,15 +26,17 @@ class DownloadWorker extends Thread
     private static int workerNr = 0;
 
     private URL baseUrl;
+    private Proxy proxy;
     private LinkedBlockingQueue<DownloadTask> queue;
 
     /**
      * @param baseUrl
      * @param queue
      */
-    public DownloadWorker(URL baseUrl, LinkedBlockingQueue<DownloadTask> queue)
+    public DownloadWorker(URL baseUrl, Proxy httpProxy, LinkedBlockingQueue<DownloadTask> queue)
     {
         this.baseUrl = baseUrl;
+        this.proxy = httpProxy;
         this.queue = queue;
         this.setName(String.format("download-worker-%1$d", workerNr++));
         this.setDaemon(true);
@@ -133,7 +135,7 @@ class DownloadWorker extends Thread
     private HttpURLConnection createDownloadConnection(String fileName) throws IOException
     {
         URL url = this.createDownloadURL(fileName);
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection(Proxy.NO_PROXY);
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection(this.proxy);
         conn.setRequestProperty("Accept", "*/*");
         conn.setConnectTimeout(10000); // TODO: Aus der Config übernehmen
         conn.setReadTimeout(10000);

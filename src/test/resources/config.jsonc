@@ -30,6 +30,25 @@
 		// 
 		"readTimeout": 5000,
 		
+		// Der Proxy für den HTTP-Download.
+		//
+		// In Produktion ist diese Angabe NICHT notwendig, da in der baseURL
+		// entweder ein ParentProxy oder direkt ein Download-Portal angegeben
+		// wird.
+		//
+		// Für Entwicklungs-Tests kann es gegebenenfalls notwendig
+		// sein, einen solchen Proxy zu konfigurieren.
+		//
+		// Der Wert ist optional, wenn er nicht angegeben wird zieht der 
+		// Default-Wert "NONE"
+		//
+		// Wenn er angegeben wird, muss es sich um einen String in der Syntax
+		// <hostname>:<port> sein. Die Angabe einer IP-Adresse für den HostName
+		// sollte tunlichst unterbleiben. Wenn es doch notwendig ist, so muss
+		// es eine IPV4-Adresse sein. IPV6 beinhaltet ":" bereits in der Adresse
+		// und der minimalistische Parser fällt damit auf die Nase.
+		"httpProxy": "NONE",
+		
 		// Die maximaler Anzahl gleichzeitiger Verbindungen zum Parent-Proxy
 		// bzw. Download-Portal. Der wirklich verwendete Wert in das minimum
 		// zwischen dem angegeben Wert und der Anzahl verfügbarer Prozessoren.
