@@ -9,7 +9,7 @@
 		// Die Basis-URL zum Parent-Proxy/Download-Portal. Alle Downloads
 		// erfolgen relativ zu dieser URL.
 		//
-		"baseUrl": "https://www.google.de",
+		"baseUrl": "https://www.apache.org",
 
 		// Der Timeout für das Verbinden mit dem Parent-Proxy/Download-Portal
 		//

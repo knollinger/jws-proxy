@@ -69,9 +69,6 @@ public class CacheRepository implements IDownloadObserver
      * Befülle das Repo mit allen Dateien, welche bereits im Filesystem-
      * Cache enthalten sind. Für diese Resourcen werden FileInputStreamFactories
      * im Repo hinterlegt.
-     * 
-     * TODO: auch die SubDirs traversieren und deren Einträge unter dem subPath-Name 
-     * im Cache verfügbar machen
      */
     private void fillFromFileSystem()
     {

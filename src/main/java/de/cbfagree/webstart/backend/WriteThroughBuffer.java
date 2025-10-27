@@ -79,9 +79,7 @@ public class WriteThroughBuffer
      */
     private AtomicReference<Exception> backendException;
 
-    private int httpStatus;
-    private String contentType;
-
+    private boolean readyForRead = false;
     private String resourceName;
 
     /**
@@ -95,8 +93,6 @@ public class WriteThroughBuffer
         this.currWriteChunk = new byte[CHUNK_SIZE];
         this.isClosed = false;
         this.backendException = new AtomicReference<>(null);
-        this.httpStatus = 0;
-        this.contentType = null;
         this.resourceName = resourceName;
     }
 
@@ -172,6 +168,10 @@ public class WriteThroughBuffer
         {
             wLock.unlock();
         }
+    }
+    
+    public void append(byte[] buf) throws InterruptedException, IOException {
+        this.append(buf, buf.length);
     }
 
     /**
@@ -271,11 +271,6 @@ public class WriteThroughBuffer
                 throw new IOException("", backendError); // TODO: Message setzen
             }
 
-            if (this.httpStatus != 0 && this.httpStatus >= 300)
-            {
-                throw new IOException(String.format("HTTP %1$d\r\n%2$s", this.httpStatus, this.resourceName));
-            }
-
             int read = 0;
             int chunkIdx = pos / CHUNK_SIZE;
             if (chunkIdx < this.chunks.size())
@@ -304,37 +299,25 @@ public class WriteThroughBuffer
         }
     }
 
+    public void setReadyForRead(boolean val) throws InterruptedException {
+        
+        ReadLock rLock = this.rwLock.readLock();
+        try
+        {
+            rLock.lockInterruptibly();
+            this.readyForRead = val;
+        }
+        finally {
+            rLock.unlock();
+        }
+    }
     /**
+     * Ist der Buffer bereit zum lesen?
      * 
-     * @param e
+     * @return
      */
-    public void setBackendException(Exception e)
-    {
-        this.backendException.set(e);
-    }
-
-    public void setStatusCode(int code)
-    {
-        this.httpStatus = code;
-    }
-
-    public int getStatusCode()
-    {
-        return this.httpStatus;
-    }
-
-    public void setContentType(String type)
-    {
-        this.contentType = type;
-    }
-
-    public String getContentType()
-    {
-        return this.contentType;
-    }
-
     public boolean isReady()
     {
-        return this.httpStatus != 0 && this.contentType != null;
+        return this.readyForRead;
     }
 }

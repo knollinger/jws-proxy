@@ -29,7 +29,7 @@ public class HttpRequestHeaderParser
         String[] parts = line.split(" ");
         builder //
             .method(parts[0].toUpperCase()) //
-            .url(parts[1].toLowerCase()) //
+            .url(parts[1]) //
             .version(parts[2].toUpperCase());
     }
 }

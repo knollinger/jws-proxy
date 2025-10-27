@@ -4,13 +4,10 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStreamWriter;
-import java.io.Writer;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.Proxy;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.util.concurrent.LinkedBlockingQueue;
 
 /**
@@ -22,6 +19,10 @@ import java.util.concurrent.LinkedBlockingQueue;
  */
 class DownloadWorker extends Thread
 {
+    private static final String CHUNK_HEADER_PATTERN = "%x\r\n";
+    private static final byte[] CHUNK_TRAILER = "\r\n".getBytes();
+    private static final byte[] LAST_CHUNK = "0\r\n\r\n".getBytes();
+
     private static int workerNr = 0;
 
     private URL baseUrl;
@@ -70,12 +71,13 @@ class DownloadWorker extends Thread
         try
         {
             HttpURLConnection conn = this.createDownloadConnection(task.fileName());
+            WriteThroughBuffer taskBuffer = task.buffer();
 
             int statusCode = conn.getResponseCode();
-            task.buffer().setStatusCode(statusCode);
-            task.buffer().setContentType(conn.getContentType());
+            this.writeHTTPHeader(conn, taskBuffer);
+            taskBuffer.setReadyForRead(true);
 
-            if (statusCode == 200)
+            if (statusCode < 300)
             {
                 try (InputStream in = conn.getInputStream())
                 {
@@ -83,21 +85,44 @@ class DownloadWorker extends Thread
                     int read = in.read(buffer);
                     while (read != -1)
                     {
-                        task.buffer().append(buffer, read);
+                        taskBuffer.append(String.format(CHUNK_HEADER_PATTERN, read).getBytes());
+                        taskBuffer.append(buffer, read);
+                        taskBuffer.append(CHUNK_TRAILER); // TODO: zusammen fassen um nicht 3* den RWLock anfordern zu müssen
                         read = in.read(buffer);
                     }
-                    task.buffer().close();
+                    taskBuffer.append(LAST_CHUNK);
+                    taskBuffer.close();
 
-                    File tmpFile = this.createCacheFile(conn, task.buffer());
-                    task.observer().downloadCompleted(task.fileName(), tmpFile);
+                    if (statusCode == 200)
+                    {
+                        File tmpFile = this.createCacheFile(taskBuffer);
+                        task.observer().downloadCompleted(task.fileName(), tmpFile);
+                    }
                 }
             }
         }
         catch (IOException | InterruptedException e)
         {
             e.printStackTrace();
-            task.buffer().setBackendException(e);
         }
+    }
+
+    /**
+     * @param conn
+     * @param taskBuffer
+     * @throws IOException
+     * @throws InterruptedException
+     */
+    private void writeHTTPHeader(HttpURLConnection conn, WriteThroughBuffer taskBuffer)
+        throws IOException, InterruptedException
+    {
+        StringBuilder hdr = new StringBuilder() //
+            .append(String.format("HTTP/1.1 %d OK\r\n", conn.getResponseCode())) //
+            .append("Connection: close\r\n") //
+            .append("Transfer-Encoding: chunked\r\n") //
+            .append(String.format("Content-Type: %s\r\n", conn.getContentType())) //
+            .append("\r\n");
+        taskBuffer.append(hdr.toString().getBytes());
     }
 
     /**
@@ -110,10 +135,11 @@ class DownloadWorker extends Thread
         URL url = this.createDownloadURL(fileName);
         HttpURLConnection conn = (HttpURLConnection) url.openConnection(Proxy.NO_PROXY);
         conn.setRequestProperty("Accept", "*/*");
-        conn.setConnectTimeout(10000);
+        conn.setConnectTimeout(10000); // TODO: Aus der Config übernehmen
         conn.setReadTimeout(10000);
         conn.setDoInput(true);
         conn.setDoOutput(true);
+        //        conn.setInstanceFollowRedirects(true);
         return conn;
     }
 
@@ -135,41 +161,30 @@ class DownloadWorker extends Thread
     }
 
     /**
+     * 
      * Generiere das File für den Cache. Das Cache-File beinhaltet eine komplette
      * Http-Response, inklusive dem Header.Der Inhalt sieht also folgendermassen aus:
      * 
      * <pre>
      * HTTP &lt;responseCode&gt; &lt;reasonPhrase&gt\r\n
      * Content-Type: &lt;empfangener ContentType aus der URLConnection&gt;\r\n
-     * Content-Length: &lt;totale größe des Buffers&gt;\r\n
+     * Transfer-Encoding: chunked\r\n
      * Connection: close\r\n
      * \r\n
-     * &lt;Inhalt des Buffers&gt;
+     * &lt;Inhalt des Buffers als Http-Chunks&gt;
      * </pre>
      * 
-     * @param urlConn
      * @param content
      * @return
      * @throws IOException
      * @throws InterruptedException
      */
-    private File createCacheFile(HttpURLConnection urlConn, WriteThroughBuffer content)
-        throws IOException, InterruptedException
+    private File createCacheFile(WriteThroughBuffer content) throws IOException, InterruptedException
     {
-
         File tmpFile = File.createTempFile("jwsproxy_", ".tmp");
 
         try (FileOutputStream fileOut = new FileOutputStream(tmpFile))
         {
-            Writer hdrWriter = new OutputStreamWriter(fileOut, StandardCharsets.US_ASCII);
-            hdrWriter.write(
-                String.format("HTTP/1.1 %1$d %2$s\r\n", urlConn.getResponseCode(), urlConn.getResponseMessage()));
-            hdrWriter.write(String.format("Content-Type: %1$s\r\n", urlConn.getContentType()));
-            hdrWriter.write(String.format("Content-Length: %1$d\r\n", content.getTotalLength()));
-            hdrWriter.write("Connection: close\r\n");
-            hdrWriter.write("\r\n");
-            hdrWriter.flush();
-
             byte[] tmpBuf = new byte[8192];
             int currPos = 0;
             int read = content.getBytes(currPos, tmpBuf, 0, tmpBuf.length);
@@ -178,11 +193,15 @@ class DownloadWorker extends Thread
                 fileOut.write(tmpBuf, 0, read);
                 currPos += read;
                 read = content.getBytes(currPos, tmpBuf, 0, tmpBuf.length);
-                
             }
             fileOut.flush();
-            
+
             return tmpFile;
+        }
+        catch (IOException | InterruptedException e)
+        {
+            tmpFile.delete();
+            throw e;
         }
     }
 }
