@@ -1,14 +1,18 @@
 package de.cbfagree.webstart.backend;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.Proxy;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -77,24 +81,18 @@ class DownloadWorker extends Thread
 
             if (statusCode == 200)
             {
-                
-                Map<String, List<String>> rspHdrs = conn.getHeaderFields(); // hier den Header draus bosseln?
-                
-                File tmpFile = File.createTempFile("a21wsproxy", ".tmp");
-                try (InputStream in = conn.getInputStream(); //
-                    OutputStream fileOut = new FileOutputStream(tmpFile))
+                try (InputStream in = conn.getInputStream())
                 {
                     byte[] buffer = new byte[0xffff];
                     int read = in.read(buffer);
                     while (read != -1)
                     {
                         job.getBuffer().append(buffer, read);
-                        fileOut.write(buffer, 0, read);
                         read = in.read(buffer);
                     }
                     job.getBuffer().close();
-                    fileOut.close();
-                    
+
+                    File tmpFile = this.createCacheFile(conn, job.getBuffer());
                     job.getObserver().downloadCompleted(job.getFileName(), tmpFile);
                 }
             }
@@ -138,5 +136,57 @@ class DownloadWorker extends Thread
         path += fileName;
 
         return new URL(this.baseUrl.getProtocol(), this.baseUrl.getHost(), this.baseUrl.getPort(), path);
+    }
+
+    /**
+     * Generiere das File für den Cache. Das Cache-File beinhaltet eine komplette
+     * Http-Response, inklusive dem Header.Der Inhalt sieht also folgendermassen aus:
+     * 
+     * <pre>
+     * HTTP &lt;responseCode&gt; &lt;reasonPhrase&gt\r\n
+     * Content-Type: &lt;empfangener ContentType aus der URLConnection&gt;\r\n
+     * Content-Length: &lt;totale größe des Buffers&gt;\r\n
+     * Connection: close\r\n
+     * \r\n
+     * &lt;Inhalt des Buffers&gt;
+     * </pre>
+     * 
+     * @param urlConn
+     * @param content
+     * @return
+     * @throws IOException
+     * @throws InterruptedException
+     */
+    private File createCacheFile(HttpURLConnection urlConn, WriteThroughBuffer content)
+        throws IOException, InterruptedException
+    {
+
+        File tmpFile = File.createTempFile("jwsproxy_", ".tmp");
+
+        try (FileOutputStream fileOut = new FileOutputStream(tmpFile))
+        {
+            Writer hdrWriter = new OutputStreamWriter(fileOut, StandardCharsets.US_ASCII);
+            hdrWriter.write(
+                String.format("HTTP/1.1 %1$d %2$s\r\n", urlConn.getResponseCode(), urlConn.getResponseMessage()));
+            hdrWriter.write(String.format("Content-Type: %1$s\r\n", urlConn.getContentType()));
+            hdrWriter.write(String.format("Content-Length: %1$d\r\n", content.getTotalLength()));
+            hdrWriter.write("Connection: close\r\n");
+            hdrWriter.write("\r\n");
+            hdrWriter.flush();
+
+            byte[] tmpBuf = new byte[8192];
+            int currPos = 0;
+            int read = content.getBytes(currPos, tmpBuf, 0, tmpBuf.length);
+            while (read != -1)
+            {
+                fileOut.write(tmpBuf, 0, read);
+                currPos += read;
+                read = content.getBytes(currPos, tmpBuf, 0, tmpBuf.length);
+                
+            }
+            fileOut.flush();
+            
+            return tmpFile;
+        }
     }
 }

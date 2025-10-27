@@ -1,12 +1,10 @@
 package de.cbfagree.webstart.cache;
 
 import java.io.BufferedInputStream;
-import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.SequenceInputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -80,17 +78,19 @@ public class CacheRepository implements DownloadObserver
         log.info(MsgFactory.get(this.getClass(), EMsgIds.FILL_REPO, this.cacheBaseDir.getAbsolutePath()));
         for (File file : this.cacheBaseDir.listFiles())
         {
-            Message msg;
+            String fileName = file.getName();
             if (!file.isFile())
             {
-                msg = MsgFactory.get(this.getClass(), EMsgIds.IGNORE_CACHE_ENTRY, file.getName());
+                log.info(MsgFactory.get(this.getClass(), EMsgIds.IGNORE_CACHE_ENTRY, fileName));
             }
             else
             {
-                msg = MsgFactory.get(this.getClass(), EMsgIds.USE_CACHE_ENTRY, file.getName());
-                this.repo.put(file.getName(), new CachedEntryInputStreamFactory(file));
+                if (fileName.endsWith(".cache"))
+                {
+                    log.info( MsgFactory.get(this.getClass(), EMsgIds.USE_CACHE_ENTRY, fileName));
+                    this.repo.put("/" + fileName, new CachedEntryInputStreamFactory(file));
+                }
             }
-            log.info(msg);
         }
 
         log.info(MsgFactory.get(this.getClass(), EMsgIds.REPO_SIZE, this.repo.size()));
@@ -161,7 +161,7 @@ public class CacheRepository implements DownloadObserver
             log.debug(MsgFactory.get(this.getClass(), EMsgIds.DOWNLOAD_COMPLETED, resourceName));
 
             Path srcPath = Path.of(file.getAbsolutePath());
-            Path targetPath = Path.of(this.cacheBaseDir.getAbsolutePath(), resourceName);
+            Path targetPath = Path.of(this.cacheBaseDir.getAbsolutePath(), resourceName + ".cache");
 
             Path parentDir = targetPath.getParent();
             if (parentDir != null)
@@ -236,11 +236,6 @@ public class CacheRepository implements DownloadObserver
      */
     private static class CachedEntryInputStreamFactory implements InputStreamFactory
     {
-        private static final String HTTP_HEADER = "HTTP 200 OK\r\n" //
-            + "Content-Type: application/octedstream\r\n" //
-            + "Content-Length: %1$d\r\n" //
-            + "\r\n";
-
         private File file;
 
         /**
@@ -257,12 +252,7 @@ public class CacheRepository implements DownloadObserver
         @Override
         public InputStream createInputStream() throws IOException
         {
-            byte[] httpHdr = String.format(HTTP_HEADER, this.file.length()).getBytes();
-
-            return new SequenceInputStream( //
-                new ByteArrayInputStream(httpHdr), //
-                new BufferedInputStream(new FileInputStream(this.file)) //
-            );
+            return new BufferedInputStream(new FileInputStream(this.file));
         }
     }
 

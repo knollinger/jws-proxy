@@ -1,4 +1,4 @@
-package de.cbfagree.webstart.frontend;
+package de.cbfagree.webstart.httputils;
 
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -10,7 +10,7 @@ import lombok.ToString;
 @Setter(AccessLevel.NONE)
 @Builder()
 @ToString()
-class HttpRequestHeader
+public class HttpRequestHeader
 {
     private String method;
     private String url;

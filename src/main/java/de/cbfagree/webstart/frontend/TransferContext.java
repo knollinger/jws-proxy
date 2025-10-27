@@ -3,6 +3,8 @@ package de.cbfagree.webstart.frontend;
 import java.io.PushbackInputStream;
 import java.net.SocketAddress;
 
+import de.cbfagree.webstart.httputils.HttpRequestHeader;
+import de.cbfagree.webstart.httputils.HttpRequestHeaderParser;
 import de.cbfagree.webstart.messages.MsgFactory;
 import lombok.extern.log4j.Log4j2;
 

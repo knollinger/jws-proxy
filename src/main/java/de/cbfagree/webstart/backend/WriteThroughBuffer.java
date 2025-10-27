@@ -212,6 +212,29 @@ public class WriteThroughBuffer
     }
 
     /**
+     * Liefere die aktuelle Gesämt-Länge des Buffers.
+     * 
+     * Solange der Buffer nicht geschlossen wurde ist dies natürlich eine
+     * Moment-Aufnahme, da ja parallel noch geschrieben werden kann.
+     * 
+     * @return
+     * @throws InterruptedException
+     */
+    public long getTotalLength() throws InterruptedException
+    {
+        ReadLock rLock = this.rwLock.readLock();
+        try
+        {
+            rLock.lock();
+            return (this.chunks.size() - 1) * CHUNK_SIZE + this.writePos;
+        }
+        finally
+        {
+            rLock.unlock();
+        }
+    }
+
+    /**
      * lese von der angegebenen Position in den ZielBuffer. Das ganze ist
      * ein wenig komplizierter:
      * 
@@ -299,16 +322,19 @@ public class WriteThroughBuffer
     {
         return this.httpStatus;
     }
-    
-    public void setContentType(String type) {
+
+    public void setContentType(String type)
+    {
         this.contentType = type;
     }
-    
-    public String getContentType() {
+
+    public String getContentType()
+    {
         return this.contentType;
     }
-    
-    public boolean isReady() {
+
+    public boolean isReady()
+    {
         return this.httpStatus != 0 && this.contentType != null;
     }
 }

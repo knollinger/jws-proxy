@@ -3,6 +3,7 @@ package de.cbfagree.webstart.frontend;
 import java.io.IOException;
 import java.io.PushbackInputStream;
 import java.net.InetSocketAddress;
+import java.net.ServerSocket;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
@@ -46,7 +47,9 @@ public class MainSelector implements Runnable
         try
         {
             ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
-            serverSocketChannel.socket().bind(new InetSocketAddress(this.config.getPort()));
+            ServerSocket socket = serverSocketChannel.socket();
+            socket.bind(new InetSocketAddress(this.config.getPort()), this.config.getBacklog());
+            socket.setReceiveBufferSize(this.config.getRecvBufferSize());
             serverSocketChannel.configureBlocking(false);
 
             Selector selector = Selector.open();
@@ -69,15 +72,19 @@ public class MainSelector implements Runnable
                         {
                             this.handleIncommingConnection(key);
                         }
-
-                        if (key.isReadable())
+                        else
                         {
-                            this.handleRead(key);
-                        }
-
-                        if (key.isWritable())
-                        {
-                            this.handleWrite(key);
+                            if (key.isReadable())
+                            {
+                                this.handleRead(key);
+                            }
+                            else
+                            {
+                                if (key.isWritable())
+                                {
+                                    this.handleWrite(key);
+                                }
+                            }
                         }
                     }
                 }

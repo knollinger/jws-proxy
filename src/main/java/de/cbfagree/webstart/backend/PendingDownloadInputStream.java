@@ -55,7 +55,7 @@ import java.io.InputStream;
 public class PendingDownloadInputStream extends InputStream
 {
     private static final String HTTP_HEADER = "" //
-        + "HTTP %1$d\r\n" //
+        + "HTTP/1.1 %1$d OK\r\n" //
         + "Transfer-Encoding: chunked\r\n" //
         + "Content-Type: %2$s\r\n" //
         + "\r\n";
@@ -322,12 +322,10 @@ public class PendingDownloadInputStream extends InputStream
         {
             int freeCapacity = this.buffer.length - (HEADER_LEN + TRAILER_LEN);
             int read = this.srcStream.read(this.buffer, HEADER_LEN, freeCapacity);
-            byte[] header;
             this.currPos = 0;
             switch (read)
             {
                 case -1 :
-                    header = String.format(HEADER_PATTERN, 0).getBytes();
                     System.arraycopy(ZERO_CHUNK, 0, this.buffer, 0, ZERO_CHUNK.length);
                     this.lastPos = ZERO_CHUNK.length;
                     this.eof = true;
@@ -338,7 +336,7 @@ public class PendingDownloadInputStream extends InputStream
                     break;
 
                 default :
-                    header = String.format(HEADER_PATTERN, read).getBytes();
+                    byte[] header = String.format(HEADER_PATTERN, read).getBytes();
                     System.arraycopy(header, 0, this.buffer, 0, HEADER_LEN);
                     System.arraycopy(TRAILER, 0, this.buffer, read + HEADER_LEN, TRAILER_LEN);
                     this.lastPos = HEADER_LEN + read + TRAILER_LEN;

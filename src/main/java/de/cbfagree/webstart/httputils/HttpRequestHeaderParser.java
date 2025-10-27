@@ -1,12 +1,12 @@
-package de.cbfagree.webstart.frontend;
+package de.cbfagree.webstart.httputils;
 
-import de.cbfagree.webstart.frontend.HttpRequestHeader.HttpRequestHeaderBuilder;
+import de.cbfagree.webstart.httputils.HttpRequestHeader.HttpRequestHeaderBuilder;
 
-class HttpRequestHeaderParser
+public class HttpRequestHeaderParser
 {
     public HttpRequestHeader parse(byte[] buffer, int len)
     {
-        String[] lines = new String(buffer, 0, len).split("\r\n"); // CharSet US-ASCII?
+        String[] lines = new String(buffer, 0, len).split("\r\n\r\n"); // CharSet US-ASCII?
         if (lines.length == 0)
         {
             // TODO: throw something
