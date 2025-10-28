@@ -10,6 +10,8 @@ import java.net.Proxy;
 import java.net.URL;
 import java.util.concurrent.LinkedBlockingQueue;
 
+import de.cbfagree.webstart.config.BackendConfig;
+
 /**
  * Der DownloadWorker fungiert als DaemonThread, welcher an der JobQueue
  * lauscht. Sobald einn neuer Job gefunden wird, so wird die Resource
@@ -27,17 +29,21 @@ class DownloadWorker extends Thread
 
     private URL baseUrl;
     private Proxy proxy;
+    private int connTimeout;
+    private int readTimeout;
     private LinkedBlockingQueue<DownloadTask> queue;
 
     /**
      * @param baseUrl
      * @param queue
      */
-    public DownloadWorker(URL baseUrl, Proxy httpProxy, LinkedBlockingQueue<DownloadTask> queue)
+    public DownloadWorker(BackendConfig cfg, Proxy httpProxy, LinkedBlockingQueue<DownloadTask> queue)
     {
-        this.baseUrl = baseUrl;
+        this.baseUrl = cfg.getBaseUrl();
         this.proxy = httpProxy;
         this.queue = queue;
+        this.connTimeout = cfg.getConnTimeout();
+        this.readTimeout = cfg.getReadTimeout();
         this.setName(String.format("download-worker-%1$d", workerNr++));
         this.setDaemon(true);
         this.start();
@@ -137,8 +143,8 @@ class DownloadWorker extends Thread
         URL url = this.createDownloadURL(fileName);
         HttpURLConnection conn = (HttpURLConnection) url.openConnection(this.proxy);
         conn.setRequestProperty("Accept", "*/*");
-        conn.setConnectTimeout(10000); // TODO: Aus der Config übernehmen
-        conn.setReadTimeout(10000);
+        conn.setConnectTimeout(this.connTimeout);
+        conn.setReadTimeout(this.readTimeout);
         conn.setDoInput(true);
         conn.setDoOutput(true);
         //        conn.setInstanceFollowRedirects(true);

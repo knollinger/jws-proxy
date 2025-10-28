@@ -20,10 +20,10 @@ public class BackendConfig
     private URL baseUrl;
 
     @JsonProperty("connTimeout")
-    private long connTimeout = 10000;
+    private int connTimeout = 10000;
 
     @JsonProperty("readTimeout")
-    private long readTimeout = 1000;
+    private int readTimeout = 1000;
 
     @JsonProperty("maxThreads")
     private int maxThreads = 4;

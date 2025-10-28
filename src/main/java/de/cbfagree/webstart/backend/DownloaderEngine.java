@@ -2,7 +2,6 @@ package de.cbfagree.webstart.backend;
 
 import java.net.InetSocketAddress;
 import java.net.Proxy;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -23,9 +22,8 @@ public class DownloaderEngine
      */
     public DownloaderEngine(BackendConfig cfg)
     {
-        Proxy httpProxy = this.setupDownloadProxy(cfg);
         this.taskQueue = new LinkedBlockingQueue<DownloadTask>(1000);
-        this.startThreads(cfg.getBaseUrl(), httpProxy, cfg.getMaxThreads(), this.taskQueue);
+        this.startThreads(cfg, this.taskQueue);
     }
 
     /**
@@ -84,14 +82,15 @@ public class DownloaderEngine
      * @param maxThreads
      * @param taskQueue
      */
-    private void startThreads(URL baseUrl, Proxy httpProxy, int maxThreads, LinkedBlockingQueue<DownloadTask> taskQueue)
+    private void startThreads(BackendConfig cfg, LinkedBlockingQueue<DownloadTask> taskQueue)
     {
-        int nrOfThreads = Math.min(maxThreads, Runtime.getRuntime().availableProcessors());
+        Proxy httpProxy = this.setupDownloadProxy(cfg);
+        int nrOfThreads = Math.min(cfg.getMaxThreads(), Runtime.getRuntime().availableProcessors());
         this.threads = new ArrayList<>(nrOfThreads);
 
         for (int i = 0; i < nrOfThreads; ++i)
         {
-            this.threads.add(new DownloadWorker(baseUrl, httpProxy, taskQueue));
+            this.threads.add(new DownloadWorker(cfg, httpProxy, taskQueue));
         }
     }
 

@@ -92,8 +92,7 @@ class ChannelTransferContext
             {
                 this.reqHeader = new HttpRequestHeaderParser().parse(this.recvBuffer, this.recvBufferWritePos);
                 this.recvBuffer = null;
-                log.debug(
-                    MsgFactory.get(this.getClass(), EMsgIds.REQ_HDR_COMPLETED, this.remoteAddress, this.reqHeader));
+                log.debug(MsgFactory.get(this.getClass(), EMsgIds.HDR_COMPLETED, this.remoteAddress, this.reqHeader));
             }
         }
         return result;
@@ -136,7 +135,7 @@ class ChannelTransferContext
     private static enum EMsgIds
     {
         CREATE_CONTEXT, //
-        REQ_HDR_COMPLETED, //
+        HDR_COMPLETED, //
     }
 
     /**
