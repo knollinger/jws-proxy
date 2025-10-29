@@ -21,8 +21,7 @@ import de.cbfagree.webstart.config.FrontendConfig;
  */
 public class MainSelector implements Runnable
 {
-    private byte[] readBuffer;
-    private byte[] writeBuffer;
+    private byte[] ioBuffer;
     private CacheRepository cacheRepo;
 
     private FrontendConfig config;
@@ -33,8 +32,7 @@ public class MainSelector implements Runnable
     public MainSelector(FrontendConfig cfg, CacheRepository cacheRepo) throws IOException
     {
         this.config = cfg;
-        this.readBuffer = new byte[cfg.getRecvBufferSize()];
-        this.writeBuffer = new byte[cfg.getSendBufferSize()];
+        this.ioBuffer = new byte[cfg.getIoBufferSize()];
         this.cacheRepo = cacheRepo;
     }
 
@@ -46,10 +44,11 @@ public class MainSelector implements Runnable
     {
         try
         {
+            Thread.currentThread().setName("main-selector-thread");
             ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
             ServerSocket socket = serverSocketChannel.socket();
             socket.bind(new InetSocketAddress(this.config.getPort()), this.config.getBacklog());
-            socket.setReceiveBufferSize(this.config.getRecvBufferSize());
+            socket.setReceiveBufferSize(this.config.getIoBufferSize());
             serverSocketChannel.configureBlocking(false);
 
             Selector selector = Selector.open();
@@ -76,13 +75,13 @@ public class MainSelector implements Runnable
                         {
                             if (key.isReadable())
                             {
-                                this.handleRead(key);
+                                this.handleIncommingData(key);
                             }
                             else
                             {
                                 if (key.isWritable())
                                 {
-                                    this.handleWrite(key);
+                                    this.handleWritableChannel(key);
                                 }
                             }
                         }
@@ -102,7 +101,7 @@ public class MainSelector implements Runnable
      * Zuerst müssen wir den HTTPRequestHeader lesen, also setzen wir
      * die InterestMap auf OP_READ.
      * 
-     * Desweiteren wird mit dem SelectorKey ein neuen {@link ChannelTransferContext}
+     * Desweiteren wird mit dem SelectorKey ein neuer {@link ChannelTransferContext}
      * assoziert. Dadurch können wir Status-Informationen zwischen den
      * asynchronen lese/schreib-Informationen an diesem Channel halten.
      * 
@@ -141,18 +140,18 @@ public class MainSelector implements Runnable
      * 
      * @param key
      */
-    private void handleRead(SelectionKey key)
+    private void handleIncommingData(SelectionKey key)
     {
         try
         {
             SocketChannel channel = (SocketChannel) key.channel();
-            ByteBuffer byteBuf = ByteBuffer.wrap(this.readBuffer);
+            ByteBuffer byteBuf = ByteBuffer.wrap(this.ioBuffer);
 
             int read = channel.read(byteBuf);
             if (read == -1)
             {
                 // TODO: unexpected eof!
-                channel.close();
+                channel.socket().close();
                 key.cancel();
             }
             else
@@ -167,7 +166,7 @@ public class MainSelector implements Runnable
                         String resName = ctx.getRequestHeader().getUrl();
                         PushbackInputStream pushbackStream = new PushbackInputStream( //
                             this.cacheRepo.getResource(resName), //
-                            this.config.getRecvBufferSize());
+                            this.config.getIoBufferSize());
 
                         ctx.setDataSrc(pushbackStream);
                         key.interestOps(SelectionKey.OP_WRITE);
@@ -205,7 +204,7 @@ public class MainSelector implements Runnable
      * 
      * @param key
      */
-    private void handleWrite(SelectionKey key)
+    private void handleWritableChannel(SelectionKey key)
     {
         SocketChannel channel = (SocketChannel) key.channel();
         try
@@ -213,7 +212,7 @@ public class MainSelector implements Runnable
             ChannelTransferContext ctx = (ChannelTransferContext) key.attachment();
             PushbackInputStream in = ctx.getDataSrc();
 
-            int read = in.read(this.writeBuffer);
+            int read = in.read(this.ioBuffer);
             switch (read)
             {
                 case -1 :
@@ -226,11 +225,11 @@ public class MainSelector implements Runnable
                     break;
 
                 default :
-                    ByteBuffer buf = ByteBuffer.wrap(this.writeBuffer, 0, read);
+                    ByteBuffer buf = ByteBuffer.wrap(this.ioBuffer, 0, read);
                     int written = channel.write(buf);
                     if (read > written)
                     {
-                        in.unread(writeBuffer, written, read - written);
+                        in.unread(ioBuffer, written, read - written);
                     }
                     break;
             }

@@ -18,13 +18,9 @@ public class FrontendConfig
     @JsonProperty("backlog")
     private int backlog = 200;
 
-    @JsonProperty("recvBufferSize")
+    @JsonProperty("ioBufferSize")
     @JsonDeserialize(using = HumanReadableSizeDeserializer.class)
-    private int recvBufferSize = 0xFFFF;
-
-    @JsonProperty("sendBufferSize")
-    @JsonDeserialize(using = HumanReadableSizeDeserializer.class)
-    private int sendBufferSize = 0xFFFF;
+    private int ioBufferSize = 0xFFFF;
 
     public void validate() throws ConfigException
     {
@@ -39,14 +35,9 @@ public class FrontendConfig
             throw new ConfigException(EMsgId.ERR_FRONTEND_BAD_BACKLOG, this.backlog);
         }
 
-        if (this.recvBufferSize < 1)
+        if (this.ioBufferSize < 1)
         {
-            throw new ConfigException(EMsgId.ERR_FRONTEND_BAD_RECV_BUFFER, this.recvBufferSize);
-        }
-
-        if (this.sendBufferSize < 1)
-        {
-            throw new ConfigException(EMsgId.ERR_FRONTEND_BAD_SEND_BUFFER, this.sendBufferSize);
+            throw new ConfigException(EMsgId.ERR_FRONTEND_BAD_IO_BUFFER, this.ioBufferSize);
         }
     }
 }

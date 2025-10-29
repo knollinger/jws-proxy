@@ -75,8 +75,12 @@
 		//
 		"backlog": 100,
 		
-		"recvBufferSize": "16Kb",
-		"sendBufferSize": "16Kb"
+		// Die Größe des IO-Buffers für den SelectorThread. Die Angabe kann
+		// rein numerisch passieren oder auch in einer "menschenlesbaren" Form
+		// wie "100kb", "1MB", "2GB", "8TB".
+		//
+		// Der numerische Ausdruck muss dabei aber immer ein Integer sein!
+		"ioBufferSize": "1mb"
 	},
 	
 	// Die Konfiguration des lokalen Prxy-Caches

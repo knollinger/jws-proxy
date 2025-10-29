@@ -34,7 +34,6 @@ public class ConfigException extends Exception
         
         ERR_FRONTEND_BAD_PORT, //
         ERR_FRONTEND_BAD_BACKLOG, //
-        ERR_FRONTEND_BAD_RECV_BUFFER, //
-        ERR_FRONTEND_BAD_SEND_BUFFER, //
+        ERR_FRONTEND_BAD_IO_BUFFER, //
     }
 }
