@@ -191,10 +191,10 @@ public class MainSelector implements Runnable
      * Der Channel ist bereit zum schreiben.
      * 
      * Wir lesen aus dem SourceStream des TransferContextes in den gemeinsammen
-     * writeBuffer. 
+     * ioBuffer. 
      * 
      * Sollte dabei EOF des SourceStreams erkannt werden, dann wird der Channel 
-     * geschlossen und aus dem Selector entfern.
+     * geschlossen und aus dem Selector entfernt.
      * 
      * Sollten aktuell keine Daten am SourceStream anliegen, so wird nichts 
      * gemacht.
@@ -210,15 +210,16 @@ public class MainSelector implements Runnable
         try
         {
             ChannelTransferContext ctx = (ChannelTransferContext) key.attachment();
-            PushbackInputStream in = ctx.getDataSrc();
+            PushbackInputStream dataIn = ctx.getDataSrc();
 
-            int read = in.read(this.ioBuffer);
+            int read = dataIn.read(this.ioBuffer);
+            
             switch (read)
             {
                 case -1 :
                     channel.socket().close();
                     key.cancel();
-                    in.close();
+                    dataIn.close();
                     break;
 
                 case 0 :
@@ -229,7 +230,7 @@ public class MainSelector implements Runnable
                     int written = channel.write(buf);
                     if (read > written)
                     {
-                        in.unread(ioBuffer, written, read - written);
+                        dataIn.unread(ioBuffer, written, read - written);
                     }
                     break;
             }

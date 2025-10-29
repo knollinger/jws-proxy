@@ -3,6 +3,13 @@ package de.cbfagree.webstart;
 import java.io.File;
 import java.io.IOException;
 
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
+
 import de.cbfagree.webstart.backend.DownloaderEngine;
 import de.cbfagree.webstart.cache.CacheRepository;
 import de.cbfagree.webstart.config.Config;
@@ -47,18 +54,38 @@ public class ProxyMain
 
     /**
      * @param args
+     * @throws ParseException 
      */
-    public static void main(String[] args)
+    public static void main(String[] args) throws ParseException
     {
-        if (args.length < 1)
-        {
-            log.error(MsgFactory.get(ProxyMain.class, EMsgIds.ERR_NO_CFG_FILE));
-        }
-        else
-        {
-            File cfgFile = new File(args[0]);
-            new ProxyMain().run(cfgFile);
-        }
+        CommandLine cmdLine = ProxyMain.parseCommandLine(args);
+        String cfgFilePath = cmdLine.getOptionValue("cfgFile");
+
+        File cfgFile = new File(cfgFilePath);
+        new ProxyMain().run(cfgFile);
+    }
+
+    private static CommandLine parseCommandLine(String[] args) throws ParseException
+    {
+        CommandLineParser cmdLineParser = new DefaultParser();
+
+        Options opts = new Options();
+        
+        opts.addOption(Option.builder("c") //
+            .longOpt("cfgFile") //
+            .hasArg(true) //
+            .desc("Der Pfad zum Konfigurations-File. Die Angabe ist verpflichten, oder verwende '--cfgFile'") //
+            .required(true) //
+            .build());
+        
+        opts.addOption(Option.builder("i") //
+            .longOpt("import") //
+            .hasArg(true) //
+            .desc("Der Pfad zum JNLP-File für den Cache-Preload. Die Angabe ist optional, die Lang-Form '--import' ist ebenfalls möglich") //
+            .required(false) //
+            .build());
+        
+        return cmdLineParser.parse(opts, args);
     }
 
     /**
@@ -66,7 +93,6 @@ public class ProxyMain
      */
     private static enum EMsgIds
     {
-        ERR_NO_CFG_FILE, //
         INF_START_WITH_CFG, //
         ERR_START_PROXY
     }

@@ -18,6 +18,6 @@
     <booleanAttribute key="org.eclipse.jdt.launching.ATTR_USE_CLASSPATH_ONLY_JAR" value="false"/>
     <stringAttribute key="org.eclipse.jdt.launching.MAIN_TYPE" value="de.cbfagree.webstart.ProxyMain"/>
     <stringAttribute key="org.eclipse.jdt.launching.MODULE_NAME" value="jws-proxy"/>
-    <stringAttribute key="org.eclipse.jdt.launching.PROGRAM_ARGUMENTS" value="${project_loc}/src/test/resources/config.jsonc"/>
+    <stringAttribute key="org.eclipse.jdt.launching.PROGRAM_ARGUMENTS" value="--cfgFile=${project_loc}/src/test/resources/config.jsonc"/>
     <stringAttribute key="org.eclipse.jdt.launching.PROJECT_ATTR" value="jws-proxy"/>
 </launchConfiguration>
